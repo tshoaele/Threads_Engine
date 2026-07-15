@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Threads Anime Question Engine</title>
+
+  <!-- PWA: manifest, icons, theme color -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ff3344">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AnimeQ Engine">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <!-- Google Fonts: Cinzel mimics the sharp, historical serifs of Trajan Pro -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;750;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      /* THEME: Cyber Tactical Dark (Crimson Red) */
+      --bg: #050508;
+      --panel: #0d0d13;
+      --card-bg: #12121c;
+      --text: #f0f2f5;
+      --muted: #65657a;
+      --line: #261a22;
+      --accent: #ff3344; /* Light crimson red replacing matrix green */
+      --accent-glow: rgba(255, 51, 68, 0.4);
+      --highlight: #ef4444;
+      --button-bg: #ff3344;
+      --button-text: #050508;
+      --font-serif: 'Cinzel', Georgia, serif;
+      --font-mono: 'Share Tech Mono', monospace;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.8), 0 0 15px rgba(255, 51, 68, 0.1);
+      --corner-size: 6px;
+    }
+
+    [data-theme="light"] {
+      /* THEME: Warm Ancient Parchment (Assassin's Creed Blueprint, Forest Green) */
+      --bg: #eaddca; /* Warm Parchment Base */
+      --panel: #dfd0bb; /* Deeper Ancient Blueprint Paper */
+      --card-bg: #f3e8d9; /* Lighter Cream Cards */
+      --text: #2a2217; /* Slate Black Ink */
+      --muted: #7d6c54; /* Muted Sepia Gray */
+      --line: #bba78a; /* Soft Clay Borders */
+      --accent: #0f6e37; /* Darker Tactical Forest Green */
+      --accent-glow: rgba(15, 110, 55, 0.25);
+      --highlight: #166534;
+      --button-bg: #2a2217; /* Contrast Dark Ink Button */
+      --button-text: #eaddca;
+      --shadow: 0 8px 24px rgba(42, 34, 23, 0.15);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-serif);
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.5;
+      transition: background 0.3s, color 0.3s;
+      overflow-x: hidden;
+      position: relative;
+      min-height: 100vh;
+    }
+
+    /* Subtle background grid pattern to enhance the tactical simulation feel */
+    body::before {
+      content: "";
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: 
+        linear-gradient(rgba(255, 51, 68, 0.01) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 51, 68, 0.01) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 1;
+    }
+    
+    [data-theme="light"]::before {
+      background-image: 
+        linear-gradient(rgba(42, 34, 23, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(42, 34, 23, 0.03) 1px, transparent 1px);
+    }
+
+    main {
+      max-width: 1080px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* HEADER CONSOLE DISPLAY */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px double var(--accent);
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      text-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .meta-clock {
+      font-family: var(--font-mono);
+      text-align: right;
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 1px;
+    }
+
+    .meta-clock strong {
+      color: var(--accent);
+      text-shadow: 0 0 8px var(--accent-glow);
+    }
+
+    /* GRID LAYOUT SETUP */
+    .layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+
+    /* TACTICAL CONSOLE FRAME */
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    /* Tactical Corners decoration mimicking interface brackets */
+    .panel::before, .panel::after, .post-card::before, .post-card::after {
+      content: "";
+      position: absolute;
+      width: var(--corner-size);
+      height: var(--corner-size);
+      border-color: var(--accent);
+      border-style: solid;
+      pointer-events: none;
+    }
+
+    /* Top Left & Right Brackets */
+    .panel::before, .post-card::before {
+      top: -1px;
+      left: -1px;
+      border-width: 1px 0 0 1px;
+    }
+    .panel::after, .post-card::after {
+      top: -1px;
+      right: -1px;
+      border-width: 1px 1px 0 0;
+    }
+
+    /* Bottom Left & Right Brackets */
+    .panel-bot-corners, .card-bot-corners {
+      position: absolute;
+      bottom: -1px;
+      left: -1px;
+      right: -1px;
+      height: var(--corner-size);
+      pointer-events: none;
+    }
+    .panel-bot-corners::before, .panel-bot-corners::after, .card-bot-corners::before, .card-bot-corners::after {
+      content: "";
+      position: absolute;
+      width: var(--corner-size);
+      height: var(--corner-size);
+      border-color: var(--accent);
+      border-style: solid;
+    }
+    .panel-bot-corners::before, .card-bot-corners::before {
+      bottom: 0;
+      left: 0;
+      border-width: 0 0 1px 1px;
+    }
+    .panel-bot-corners::after, .card-bot-corners::after {
+      bottom: 0;
+      right: 0;
+      border-width: 0 1px 1px 0;
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* BUTTONS STYLE */
+    button {
+      font-family: var(--font-serif);
+      background: var(--button-bg);
+      color: var(--button-text);
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 12px;
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      width: 100%;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    button:hover {
+      background: var(--text);
+      color: var(--bg);
+      border-color: var(--text);
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    button.secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* STATS & METRICS BOX */
+    .stats-box {
+      background: var(--card-bg);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+
+    .stats-box div {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .stats-box div:last-child {
+      margin-bottom: 0;
+    }
+
+    .stats-box span {
+      color: var(--muted);
+    }
+
+    .stats-box strong {
+      color: var(--accent);
+    }
+
+    /* PERSISTENT MOBILE NAVIGATION HEADERS */
+    .mobile-navigation-indicator {
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      padding: 8px 12px;
+      background: var(--panel);
+    }
+    
+    .mobile-navigation-indicator button {
+      width: auto;
+      padding: 4px 10px;
+      font-size: 10px;
+    }
+
+    /* MASTER TIMELINE CONTAINER */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 30px;
+      position: relative;
+    }
+
+    .day-section {
+      position: relative;
+      padding-left: 20px;
+      border-left: 1px dashed var(--line);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    /* Dot locator element marking day intervals */
+    .day-section::before {
+      content: "";
+      position: absolute;
+      left: -4px;
+      top: 6px;
+      width: 7px;
+      height: 7px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .day-header {
+      font-size: 18px;
+      font-weight: 750;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+      color: var(--text);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .day-header span {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-weight: 400;
+    }
+
+    .grid-posts {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* POST CARDS DESIGN */
+    .post-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: 80px 1fr 40px;
+      gap: 16px;
+      align-items: center;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .post-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+      transform: translateX(6px);
+    }
+
+    .post-time {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--card-bg);
+      border: 1px solid var(--line);
+      padding: 4px 6px;
+      border-radius: 2px;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    /* Visual indicators for passed slots based on daily timeline calculation */
+    .post-card.passed {
+      opacity: 0.55;
+    }
+
+    .post-card.passed .post-time {
+      text-decoration: line-through;
+      color: var(--muted);
+      border-color: transparent;
+    }
+
+    .post-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: 0.5px;
+    }
+
+    /* Status indicator on the cards mimicking active interface displays */
+    .card-status {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+    }
+
+    .card-status-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--muted);
+      border-radius: 50%;
+      transition: background 0.2s;
+    }
+
+    .post-card:hover .card-status-dot {
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+    }
+
+    .copy-indicator {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      position: absolute;
+      right: 18px;
+      top: 4px;
+    }
+
+    .post-card:hover .copy-indicator {
+      opacity: 0.8;
+    }
+
+    /* TOAST NOTIFICATION */
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: var(--button-text);
+      font-family: var(--font-mono);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      padding: 10px 20px;
+      border-radius: 2px;
+      font-size: 11px;
+      font-weight: 700;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      border: 1px solid var(--text);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s, bottom 0.2s;
+      z-index: 1000;
+    }
+
+    .toast.show {
+      opacity: 1;
+      bottom: 40px;
+    }
+
+    /* COMPACT MOBILE SWIPE DECK DESIGN */
+    @media (max-width: 768px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .sidebar {
+        position: static;
+      }
+      .mobile-navigation-indicator {
+        display: flex;
+      }
+      
+      /* Mobile Compact Mode: Only display active swipe card index deck day */
+      .day-section {
+        display: none;
+        border-left: none;
+        padding-left: 0;
+      }
+      .day-section::before {
+        display: none;
+      }
+      .day-section.active-day {
+        display: block;
+      }
+      
+      /* Animation styles mapped to sliding directions */
+      .day-section.slide-in-right {
+        animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      .day-section.slide-in-left {
+        animation: slideInLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      
+      .post-card {
+        grid-template-columns: 75px 1fr auto;
+        gap: 12px;
+        padding: 12px 14px;
+      }
+      .post-text {
+        font-size: 13.5px;
+      }
+    }
+
+    @keyframes slideInRight {
+      from { opacity: 0; transform: translateX(30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-30px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <main>
+    <header>
+      <div>
+        <h1>Threads Anime Question Engine</h1>
+      </div>
+      <div class="meta-clock">
+        <div id="liveDate">Date: --</div>
+        <div id="liveTime">SAST: <strong>--:--:--</strong></div>
+      </div>
+    </header>
+
+    <!-- Persistent navigation controller shown only on phone layouts -->
+    <div class="mobile-navigation-indicator">
+      <button id="prevDayBtn" class="secondary">&larr; Prev Day</button>
+      <span id="mobileDayTitle">Day 1</span>
+      <button id="nextDayBtn" class="secondary">Next Day &rarr;</button>
+    </div>
+
+    <div class="layout">
+      <aside class="sidebar">
+        <!-- Theme Controller Action Panel -->
+        <div class="panel">
+          <div class="panel-bot-corners"></div>
+          <button id="themeToggleBtn" class="secondary" style="margin-bottom: 12px;">Toggle Aesthetic</button>
+          <button id="regenBtn">Roll New 30 Days</button>
+        </div>
+        
+        <div class="panel stats-box">
+          <div class="panel-bot-corners"></div>
+          <div><span>System Status</span><strong>ACTIVE</strong></div>
+          <div><span>Scope Grid</span><strong>30 Days</strong></div>
+          <div><span>Queue Pool</span><strong>300 Items</strong></div>
+          <div><span>Engine Base</span><strong>SAST</strong></div>
+        </div>
+        
+        <div class="panel stats-box" style="font-size: 11px; color: var(--muted); line-height: 1.5;">
+          <div class="panel-bot-corners"></div>
+          Console Active. On phone, <strong>swipe left</strong> to pull the next day or <strong>swipe right</strong> to return to the previous day.
+        </div>
+      </aside>
+
+      <section class="timeline" id="timelineContainer"></section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast">Copied to Clipboard</div>
+
+  <script>
+    // System Theme Toggle Controller (Crimson Dark vs Parchment Green Light)
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+
+    // Restore saved theme choice on load
+    const savedTheme = localStorage.getItem('aq-theme');
+    if (savedTheme === 'light') {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      if (currentTheme === 'light') {
+        document.documentElement.removeAttribute('data-theme');
+        localStorage.setItem('aq-theme', 'dark');
+      } else {
+        document.documentElement.setAttribute('data-theme', 'light');
+        localStorage.setItem('aq-theme', 'light');
+      }
+    });
+
+    // Content dictionaries for programmatic variation mapping
+    const animes = ["Attack on Titan", "Death Note", "Naruto", "One Piece", "Solo Leveling", "Bleach", "Jujutsu Kaisen", "Demon Slayer", "Blue Lock", "Haikyuu", "Vinland Saga", "Kingdom", "Kaiju No. 8", "Chainsaw Man", "Hunter x Hunter", "Fullmetal Alchemist", "My Hero Academia", "Cyberpunk Edgerunners", "Monster", "Code Geass"];
+    const characters = ["Gojo", "Sukuna", "Luffy", "Goku", "Levi", "Zoro", "Eren Jaeger", "Light Yagami", "Lelouch", "Madara", "Aizen", "Ichigo", "Saitama", "Thorfinn", "Naruto", "Killian", "Kaneki", "Kakashi"];
+    const studios = ["MAPPA", "Ufotable", "Wit Studio", "Madhouse", "Bones", "Trigger", "A-1 Pictures"];
+    const genres = ["shonen", "seinen", "dark fantasy", "sports anime", "isekai", "mecha", "psychological thriller"];
+    const arcs = ["tournament arc", "training arc", "timeskip execution", "final arc sequence", "betrayal arc", "rescue mission"];
+
+    // Dynamic question generators
+    const dynamicTemplates = [
+      (i) => `One anime. No explanation.`,
+      (i) => `${pick(animes, i)} or ${pick(animes, i + 1)}?`,
+      (i) => `${pick(characters, i)} or ${pick(characters, i + 1)}?`,
+      (i) => `Which villain was actually right?`,
+      (i) => `What anime are you defending forever?`,
+      (i) => `What is your current anime obsession?`,
+      (i) => `Which anime character deserved better?`,
+      (i) => `Dub or sub?`,
+      (i) => `If you could erase one anime death, who would it be?`,
+      (i) => `What is your comfort anime?`,
+      (i) => `Anime that changed your life?`,
+      (i) => `Name an anime everyone should watch at least once.`,
+      (i) => `What is your ultimate anime unpopular opinion?`,
+      (i) => `Which anime has zero bad episodes?`,
+      (i) => `Which anime series genuinely deserved another season?`,
+      (i) => `Best anime opening of all time?`,
+      (i) => `What is your absolute sharpest anime hot take?`,
+      (i) => `Most underrated anime in existence?`,
+      (i) => `Which anime made you cry the hardest?`,
+      (i) => `Who is the greatest anime protagonist ever written?`,
+      (i) => `Which anime has the best overall soundtrack?`,
+      (i) => `First anime you ever watched?`,
+      (i) => `An anime everyone loves but you just can't stand?`,
+      (i) => `Which older anime deserves a high-budget modern remake?`,
+      (i) => `What is your favorite anime quote?`,
+      (i) => `Which anime world would you actually want to live in?`,
+      (i) => `Who is the most completely overpowered anime character?`,
+      (i) => `Which anime ending broke you completely?`,
+      (i) => `What anime are you watching right now?`,
+      (i) => `Best anime fight scene of all time?`,
+      (i) => `Which anime has the absolute best world-building?`,
+      (i) => `Which anime should Netflix never touch or remake?`,
+      (i) => `Skip the opening theme or watch it every single time?`,
+      (i) => `The manga was 10x better than the anime adaptation. Name it.`,
+      (i) => `An anime that started as a masterclass but ended horribly?`,
+      (i) => `Name an anime that is a flawless 10/10.`,
+      (i) => `Who is the most well-written character in anime history?`,
+      (i) => `You can only save one shonen universe. The rest vanish. Which one?`,
+      (i) => `Best studio working right now: ${pick(studios, i)}, ${pick(studios, i+1)}, or ${pick(studios, i+2)}?`,
+      (i) => `An anime you can rewatch monthly without getting bored?`,
+      (i) => `Name a side character who completely stole the entire show.`,
+      (i) => `What anime trope needs to die immediately?`,
+      (i) => `Name an anime that changed your mind completely after episode one.`,
+      (i) => `${pick(characters, i)} did absolutely nothing wrong. Agree or disagree?`,
+      (i) => `The most brutal anime plot twist you never saw coming?`,
+      (i) => `Which anime character has the best visual design, period?`,
+      (i) => `Name an anime that deserves a massive budget theatrical movie.`,
+      (i) => `You are stuck in an isekai for a year. What single power are you picking?`,
+      (i) => `Which anime had the most disappointing final boss battle?`,
+      (i) => `Rate the animation quality of ${pick(animes, i)} from 1 to 10.`,
+      (i) => `Which character had the most satisfying training arc progression?`,
+      (i) => `Is ${pick(animes, i)} overrated, underrated, or perfectly rated?`,
+      (i) => `Who had the more agonizing backstory: ${pick(characters, i)} or ${pick(characters, i + 2)}?`,
+      (i) => `What is the most iconic weapon design in all of anime?`,
+      (i) => `Which ${pick(genres, i)} anime is the blueprint for the entire genre?`,
+      (i) => `A scene that still gives you goosebumps no matter how many times you watch it?`,
+      (i) => `Which studio handled their adaptation better: ${pick(studios, i)} or ${pick(studios, i + 1)}?`,
+      (i) => `What is the most brutal execution or death scene in a ${pick(genres, i)} series?`,
+      (i) => `Does a ${pick(arcs, i)} make or break a long-running series?`,
+      (i) => `Name an anime character whose power system makes zero logical sense.`
+    ];
+
+    const targetTimes = ["08:30", "10:30", "12:00", "13:30", "15:00", "16:30", "18:00", "19:15", "20:30", "21:45"];
+    let activeDayIndex = 0; // Current viewed page index for mobile layouts
+    
+    function pick(list, index) {
+      return list[((index % list.length) + list.length) % list.length];
+    }
+
+    function updateClock() {
+      const now = new Date();
+      
+      const dateOpts = { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' };
+      document.getElementById('liveDate').textContent = now.toLocaleDateString('en-ZA', dateOpts);
+      
+      const timeOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+      document.getElementById('liveTime').innerHTML = `SAST: <strong>${now.toLocaleTimeString('en-ZA', timeOpts)}</strong>`;
+      
+      const currentHourMin = now.getHours() * 60 + now.getMinutes();
+      
+      document.querySelectorAll('.post-card').forEach(card => {
+        const isToday = card.getAttribute('data-istoday') === 'true';
+        if (isToday) {
+          const [h, m] = card.getAttribute('data-time').split(':').map(Number);
+          const slotHourMin = h * 60 + m;
+          if (currentHourMin > slotHourMin) {
+            card.classList.add('passed');
+          } else {
+            card.classList.remove('passed');
+          }
+        }
+      });
+    }
+
+    function buildTimeline() {
+      const container = document.getElementById('timelineContainer');
+      container.innerHTML = '';
+      
+      const start = new Date();
+      const seen = new Set();
+      let internalCounter = Math.floor(Math.random() * 1000);
+
+      for (let day = 0; day < 30; day++) {
+        const targetDate = new Date(start);
+        targetDate.setDate(start.getDate() + day);
+        
+        const dateString = targetDate.toLocaleDateString('en-ZA', { month: 'short', day: 'numeric' });
+        const dayLabel = day === 0 ? "Today" : day === 1 ? "Tomorrow" : `Day ${day + 1}`;
+        
+        const daySection = document.createElement('div');
+        daySection.className = 'day-section';
+        daySection.setAttribute('data-index', day);
+        if (day === activeDayIndex) {
+          daySection.classList.add('active-day');
+        }
+        
+        const header = document.createElement('div');
+        header.className = 'day-header';
+        header.innerHTML = `${dayLabel} <span>(${dateString})</span>`;
+        daySection.appendChild(header);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid-posts';
+
+        for (let slot = 0; slot < 10; slot++) {
+          let postText = "";
+          let guard = 0;
+          
+          while (guard < 150) {
+            const templateFn = pick(dynamicTemplates, internalCounter + guard);
+            postText = templateFn(internalCounter * 3 + slot * 7 + day * 13);
+            
+            const normalized = postText.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+            if (!seen.has(normalized)) {
+              seen.add(normalized);
+              internalCounter += guard + 1;
+              break;
+            }
+            guard++;
+          }
+
+          const timeSlot = targetTimes[slot];
+          const card = document.createElement('div');
+          card.className = 'post-card';
+          card.setAttribute('data-time', timeSlot);
+          card.setAttribute('data-istoday', day === 0 ? 'true' : 'false');
+          
+          card.innerHTML = `
+            <div class="card-bot-corners"></div>
+            <div class="post-time">${timeSlot}</div>
+            <div class="post-text">${postText}</div>
+            <div class="card-status">
+              <span class="card-status-dot"></span>
+            </div>
+            <div class="copy-indicator">Terminal Copy ready</div>
+          `;
+
+          card.addEventListener('click', () => {
+            navigator.clipboard.writeText(postText);
+            
+            // Flash indicator dot visually on execution click
+            const dot = card.querySelector('.card-status-dot');
+            const originalColor = dot.style.background;
+            dot.style.background = '#ffffff';
+            setTimeout(() => { dot.style.background = originalColor; }, 200);
+
+            const toast = document.getElementById('toast');
+            toast.textContent = "copied to clipboard";
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 1500);
+          });
+
+          grid.appendChild(card);
+        }
+
+        daySection.appendChild(grid);
+        container.appendChild(daySection);
+      }
+      
+      updateMobileLabel();
+      updateClock();
+    }
+
+    // Advanced Mobile Swipe Processing Logic
+    let touchstartX = 0;
+    let touchstartY = 0;
+    let touchendX = 0;
+    let touchendY = 0;
+    
+    const gestureTarget = document.getElementById('timelineContainer');
+    
+    gestureTarget.addEventListener('touchstart', e => {
+      touchstartX = e.changedTouches[0].screenX;
+      touchstartY = e.changedTouches[0].screenY;
+    }, {passive: true});
+    
+    gestureTarget.addEventListener('touchend', e => {
+      touchendX = e.changedTouches[0].screenX;
+      touchendY = e.changedTouches[0].screenY;
+      handleSwipeGesture();
+    }, {passive: true});
+    
+    function handleSwipeGesture() {
+      const deltaX = touchendX - touchstartX;
+      const deltaY = touchendY - touchstartY;
+      
+      const swipeThreshold = 60; // Minimum distance to declare a swipe
+      
+      // Ensure horizontal swipe intent exceeds vertical scrolling noise to protect user scroll experience
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        if (deltaX < -swipeThreshold) {
+          // Swiped Left -> Navigate to next day's posts
+          navigateDay(1, 'right');
+        } else if (deltaX > swipeThreshold) {
+          // Swiped Right -> Navigate to previous day's posts
+          navigateDay(-1, 'left');
+        }
+      }
+    }
+
+    function navigateDay(direction, slideFrom) {
+      const sections = document.querySelectorAll('.day-section');
+      let targetIndex = activeDayIndex + direction;
+      
+      if (targetIndex >= 0 && targetIndex < sections.length) {
+        // Strip current layout states and trigger sliding animation transitions
+        sections[activeDayIndex].classList.remove('active-day', 'slide-in-right', 'slide-in-left');
+        
+        activeDayIndex = targetIndex;
+        
+        const nextSection = sections[activeDayIndex];
+        nextSection.classList.add('active-day');
+        
+        // Match CSS slide transforms based on movement vector
+        if (slideFrom === 'right') {
+          nextSection.classList.add('slide-in-right');
+        } else {
+          nextSection.classList.add('slide-in-left');
+        }
+        
+        updateMobileLabel();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+
+    function updateMobileLabel() {
+      const activeSection = document.querySelector(`.day-section[data-index="${activeDayIndex}"]`);
+      if (activeSection) {
+        const headerText = activeSection.querySelector('.day-header').innerHTML;
+        document.getElementById('mobileDayTitle').innerHTML = headerText;
+      }
+    }
+
+    document.getElementById('prevDayBtn').addEventListener('click', () => navigateDay(-1, 'left'));
+    document.getElementById('nextDayBtn').addEventListener('click', () => navigateDay(1, 'right'));
+    document.getElementById('regenBtn').addEventListener('click', buildTimeline);
+
+    // Initial Engine Fire
+    buildTimeline();
+    setInterval(updateClock, 1000);
+
+    // PWA: register service worker for offline app shell caching
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () => {
+        navigator.serviceWorker.register("sw.js").catch((err) => {
+          console.warn("Service worker registration failed:", err);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
